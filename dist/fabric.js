@@ -20144,12 +20144,9 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
     _renderChars: function(method, ctx, chars, left, top) {
 
       // if canvas supports direct measurement of text we use it rather than canvas
-<<<<<<< HEAD
       // to enable TTF/OTF support via OpenType, we lose out on justification if that is
       // the alignment using this.
-=======
       // to enable TTF/OTF support via OpenType
->>>>>>> ea9466e263bc20bcf5e6ae96241a5de331d4dd62
       if (ctx.measureText) {
         if (ctx.textAlign == 'center') {
           var w = ctx.measureText(chars);
@@ -20157,17 +20154,11 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
         } else if (ctx.textAlign == 'right') {
           var w = ctx.measureText(chars);
           left = (left - w.width);
-<<<<<<< HEAD
         } else if (ctx.textAlign == 'justify') {
           throw 'Text alignment "justify" is not supported when rendering in OpenType yet.'
         }
       }
-
-=======
-        }
-      }
       
->>>>>>> ea9466e263bc20bcf5e6ae96241a5de331d4dd62
       // remove Text word from method var
       var shortM = method.slice(0, -4);
       if (this[shortM].toLive) {
