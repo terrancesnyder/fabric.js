@@ -20142,6 +20142,22 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
      * @param {Number} top Top position of text
      */
     _renderChars: function(method, ctx, chars, left, top) {
+
+      // if canvas supports direct measurement of text we use it rather than canvas
+      // to enable TTF/OTF support via OpenType, we lose out on justification if that is
+      // the alignment using this.
+      if (ctx.measureText) {
+        if (ctx.textAlign == 'center') {
+          var w = ctx.measureText(chars);
+          left = (left - (w.width/2));
+        } else if (ctx.textAlign == 'right') {
+          var w = ctx.measureText(chars);
+          left = (left - w.width);
+        } else if (ctx.textAlign == 'justify') {
+          throw 'Text alignment "justify" is not supported when rendering in OpenType yet.'
+        }
+      }
+
       // remove Text word from method var
       var shortM = method.slice(0, -4);
       if (this[shortM].toLive) {
