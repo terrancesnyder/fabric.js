@@ -23998,51 +23998,66 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
      * to.
      */
     _wrapLine: function(ctx, text, lineIndex) {
-      var lineWidth        = 0,
-          lines            = [],
-          line             = '',
-          words            = text.split(' '),
-          word             = '',
-          offset           = 0,
-          infix            = ' ',
-          wordWidth        = 0,
-          infixWidth       = 0,
-          largestWordWidth = 0;
+      var wrapped_lines = [];
+      var line_buffer = '';
+      var candidate_line = '';
+      
+      var max_line = { width: 0.00, text: '' };
 
-      for (var i = 0; i < words.length; i++) {
-        word = words[i];
-        wordWidth = this._measureText(ctx, word, lineIndex, offset);
-        offset += word.length;
+      // http://www.rikai.com/library/kanjitables/kanji_codes.unicode.shtml
+      // http://www.tamasoft.co.jp/en/general-info/unicode.html
+      // https://en.wikipedia.org/wiki/Line_breaking_rules_in_East_Asian_languages
+      var lang_jpn = /[\u3000-\u303F]|[\u3040-\u309F]|[\u30A0-\u30FF]|[\uFF00-\uFFEF]|[\u4E00-\u9FAF]|[\u2605-\u2606]|[\u2190-\u2195]|\u203B/g.test(text);
+      var jpn_punctuation_or_special = /[\u3000-\u303F]|[\uFF5B-\uFF65]|[\uFFBF-\uFFEF]|[$&+,:;=?@#|'<>.^*()%!-]|[\s]/g;
 
-        lineWidth += infixWidth + wordWidth;
+      var text_length = text.split('').length;
 
-        if (lineWidth >= this.width && line !== '') {
-          lines.push(line);
-          line = '';
-          lineWidth = wordWidth;
+      for (var i=0; i < text_length; i++) {
+        line_buffer += text[i];
+        
+        // TODO... better handling here of international text languages        
+        if (lang_jpn) {
+          candidate_line = line_buffer.trim();
+        } else {
+          if (text[i] == ' ') {
+            candidate_line = line_buffer.trim();
+          }
         }
 
-        if (line !== '' || i === 1) {
-          line += infix;
-        }
-        line += word;
 
-        infixWidth = this._measureText(ctx, infix, lineIndex, offset);
-        offset++;
+        var m = openTypeMeasureText ? openTypeMeasureText(line_buffer, null, ctx) : ctx.measureText(line_buffer);
 
-        // keep track of largest word
-        if (wordWidth > largestWordWidth) {
-          largestWordWidth = wordWidth;
+        if (m.width >= this.width && candidate_line.trim().length > 0) {
+
+          // if we run japanese than we need to check if the last character overlaps, if so
+          // we need to move to the next line, but only if the last character is not a japanese
+          // punctuation
+          var last_char = candidate_line.trim().substring(candidate_line.trim().length-1);
+          if (lang_jpn && false == jpn_punctuation_or_special.test(last_char)) {
+            var shifted_line = candidate_line.trim().substring(0, candidate_line.trim().length-1);
+            wrapped_lines.push(shifted_line);
+            line_buffer = (last_char + line_buffer.substring(candidate_line.trim().length+1).trim())+'';
+          } else {
+            wrapped_lines.push(candidate_line.trim());
+            line_buffer = (line_buffer.substring(candidate_line.trim().length).trim())+'';
+          }
+
+          candidate_line = '';
+          if (max_line.width < m.width) {
+            max_line.width = m.width;
+            max_line.text = candidate_line;
+          }
         }
       }
-
-      i && lines.push(line);
-
-      if (largestWordWidth > this.dynamicMinWidth) {
-        this.dynamicMinWidth = largestWordWidth;
+      if (line_buffer.trim().length > 0) {
+        wrapped_lines.push(line_buffer);
       }
 
-      return lines;
+      if (max_line.width < this.dynamicMinWidth) {
+        this.dynamicMinWidth = max_line.width;
+      }
+
+      return wrapped_lines;
     },
 
     /**
