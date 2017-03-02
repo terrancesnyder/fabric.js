@@ -13777,12 +13777,10 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
    * @tutorial {@link http://fabricjs.com/fabric-intro-part-2/#animation}
    * @chainable
    *
-   * As object — multiple properties
    *
    * object.animate({ left: ..., top: ... });
    * object.animate({ left: ..., top: ... }, { duration: ... });
    *
-   * As string — one property
    *
    * object.animate('left', ...);
    * object.animate('left', { duration: ... });
@@ -20147,12 +20145,12 @@ fabric.Image.filters.BaseFilter = fabric.util.createClass(/** @lends fabric.Imag
       // to enable TTF/OTF support via OpenType, we lose out on justification if that is
       // the alignment using this.
       // to enable TTF/OTF support via OpenType
-      if (ctx.measureText) {
+      if (console.measureText) {
         if (ctx.textAlign == 'center') {
-          var w = ctx.measureText(chars);
+          var w = console.measureText(chars, { font: ctx.font });
           left = (left - (w.width/2));
         } else if (ctx.textAlign == 'right') {
-          var w = ctx.measureText(chars);
+          var w = console.measureText(chars, { font: ctx.font });
           left = (left - w.width);
         } else if (ctx.textAlign == 'justify') {
           throw 'Text alignment "justify" is not supported when rendering in OpenType yet.'
@@ -23959,13 +23957,18 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
      * @returns {Array} Array of lines
      */
     _wrapText: function(ctx, text) {
+      if (this.__cachedLines && this.__cachedLines.length > 0) {
+        return this.__cachedLines;
+      }
       var lines = text.split(this._reNewline), wrapped = [], i;
 
       for (i = 0; i < lines.length; i++) {
         wrapped = wrapped.concat(this._wrapLine(ctx, lines[i], i));
       }
 
-      return wrapped;
+      this.__cachedLines = wrapped;
+
+      return this.__cachedLines;
     },
 
     /**
@@ -23998,6 +24001,7 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
      * to.
      */
     _wrapLine: function(ctx, text, lineIndex) {
+
       var wrapped_lines = [];
       var line_buffer = '';
       var candidate_line = '';
@@ -24008,47 +24012,51 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
       // http://www.tamasoft.co.jp/en/general-info/unicode.html
       // https://en.wikipedia.org/wiki/Line_breaking_rules_in_East_Asian_languages
       var lang_jpn = /[\u3000-\u303F]|[\u3040-\u309F]|[\u30A0-\u30FF]|[\uFF00-\uFFEF]|[\u4E00-\u9FAF]|[\u2605-\u2606]|[\u2190-\u2195]|\u203B/g.test(text);
-      var jpn_punctuation_or_special = /[\u3000-\u303F]|[\uFF5B-\uFF65]|[\uFFBF-\uFFEF]|[$&+,:;=?@#|'<>.^*()%!-]|[\s]/g;
+      // var jpn_punctuation_or_special = /[\u3000-\u303F]|[\uFF5B-\uFF65]|[\uFFBF-\uFFEF]|[$&+,:;=?@#|'<>.^*()%!-]|[\s]/g;
 
-      var text_length = text.split('').length;
+      var prior_line = null;      // line that was measured last, so if we spill we go back to this one
+      var candidate_line = null;  // line being evaluated in the for each loop, it can spill over and when it does we revert to prior line
 
-      for (var i=0; i < text_length; i++) {
+      // for first pass, we guess how much space we can use, to optimize (N) lookup
+      var width_of_large_char = console.measureText('W', { font: ctx.font }).width;
+      var min = Math.floor((this.width-width_of_large_char)/width_of_large_char);
+
+      for (var i=0; i < text.length; i++) {
+
         line_buffer += text[i];
-        
-        // TODO... better handling here of international text languages        
-        if (lang_jpn) {
-          candidate_line = line_buffer.trim();
-        } else {
-          if (text[i] == ' ') {
-            candidate_line = line_buffer.trim();
+        candidate_line = line_buffer.trim();
+
+        if (candidate_line) {
+          if (candidate_line.length < min) {
+            continue;
           }
-        }
 
+          // most expensive line... try to avoid
+          var m = console.measureText(candidate_line, { font: ctx.font });
 
-        var m = openTypeMeasureText ? openTypeMeasureText(line_buffer, null, ctx) : ctx.measureText(line_buffer);
-
-        if (m.width >= this.width && candidate_line.trim().length > 0) {
-
-          // if we run japanese than we need to check if the last character overlaps, if so
-          // we need to move to the next line, but only if the last character is not a japanese
-          // punctuation
-          var last_char = candidate_line.trim().substring(candidate_line.trim().length-1);
-          if (lang_jpn && false == jpn_punctuation_or_special.test(last_char)) {
-            var shifted_line = candidate_line.trim().substring(0, candidate_line.trim().length-1);
-            wrapped_lines.push(shifted_line);
-            line_buffer = (last_char + line_buffer.substring(candidate_line.trim().length+1).trim())+'';
+          if (m.width < this.width) {
+            prior_line = candidate_line;
           } else {
-            wrapped_lines.push(candidate_line.trim());
-            line_buffer = (line_buffer.substring(candidate_line.trim().length).trim())+'';
-          }
+            // if we have spaces we can need to figure out where we can
+            // logically break...
+            var words = (prior_line || candidate_line).split(' ');
+            if (words.length > 1) {
+              var last_word = words.pop();
+              var txt = words.join(' ');
+              wrapped_lines.push(txt.trim());
+              line_buffer = (line_buffer.substring(txt.length).trim());
+            } else {
+              wrapped_lines.push(prior_line.trim());
+              line_buffer = (line_buffer.substring(prior_line.length).trim());
+            }
 
-          candidate_line = '';
-          if (max_line.width < m.width) {
-            max_line.width = m.width;
-            max_line.text = candidate_line;
+            candidate_line = null;
+            prior_line = null;
           }
         }
       }
+
+      // take any remainder and add in
       if (line_buffer.trim().length > 0) {
         wrapped_lines.push(line_buffer);
       }
@@ -24615,4 +24623,3 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
   }
 
 })();
-
