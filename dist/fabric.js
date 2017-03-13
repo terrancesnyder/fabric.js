@@ -7293,6 +7293,7 @@ fabric.Pattern = fabric.util.createClass(/** @lends fabric.Pattern.prototype */ 
     dispose: function () {
       this.clear();
       this.interactive && this.removeListeners();
+      this.lowerCanvasEl = null;
       return this;
     },
 
@@ -9436,7 +9437,7 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
 
       this._bindEvents();
 
-      addListener(fabric.window, 'resize', this._onResize);
+      // addListener(fabric.window, 'resize', this._onResize);
 
       // mouse events
       addListener(this.upperCanvasEl, 'mousedown', this._onMouseDown);
@@ -9476,7 +9477,7 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
      * Removes all event listeners
      */
     removeListeners: function() {
-      removeListener(fabric.window, 'resize', this._onResize);
+      // removeListener(fabric.window, 'resize', this._onResize);
 
       removeListener(this.upperCanvasEl, 'mousedown', this._onMouseDown);
       removeListener(this.upperCanvasEl, 'mousemove', this._onMouseMove);
