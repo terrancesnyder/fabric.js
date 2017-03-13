@@ -24009,12 +24009,6 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
       
       var max_line = { width: 0.00, text: '' };
 
-      // http://www.rikai.com/library/kanjitables/kanji_codes.unicode.shtml
-      // http://www.tamasoft.co.jp/en/general-info/unicode.html
-      // https://en.wikipedia.org/wiki/Line_breaking_rules_in_East_Asian_languages
-      var lang_jpn = /[\u3000-\u303F]|[\u3040-\u309F]|[\u30A0-\u30FF]|[\uFF00-\uFFEF]|[\u4E00-\u9FAF]|[\u2605-\u2606]|[\u2190-\u2195]|\u203B/g.test(text);
-      // var jpn_punctuation_or_special = /[\u3000-\u303F]|[\uFF5B-\uFF65]|[\uFFBF-\uFFEF]|[$&+,:;=?@#|'<>.^*()%!-]|[\s]/g;
-
       var prior_line = null;      // line that was measured last, so if we spill we go back to this one
       var candidate_line = null;  // line being evaluated in the for each loop, it can spill over and when it does we revert to prior line
 
@@ -24047,8 +24041,13 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
               wrapped_lines.push(txt.trim());
               line_buffer = (line_buffer.substring(txt.length).trim());
             } else {
-              wrapped_lines.push(prior_line.trim());
-              line_buffer = (line_buffer.substring(prior_line.length).trim());
+              if (prior_line) {
+                wrapped_lines.push(prior_line.trim());
+                line_buffer = (line_buffer.substring(prior_line.length).trim());
+              } else {
+                wrapped_lines.push(candidate_line.trim());
+                line_buffer = (line_buffer.substring(candidate_line.length).trim());
+              }
             }
 
             candidate_line = null;
